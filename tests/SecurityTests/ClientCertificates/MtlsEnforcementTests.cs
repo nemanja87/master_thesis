@@ -1,3 +1,5 @@
+using Xunit;
+
 namespace SecurityTests.ClientCertificates;
 
 public sealed class MtlsEnforcementTests

@@ -52,3 +52,19 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Node.js
+node_modules/
+dist/
+build/
+
+# OS junk
+.DS_Store
+
+# IDE/editor folders
+.vscode/
+.idea/
+
+# Logs and environment files
+*.log
+.env

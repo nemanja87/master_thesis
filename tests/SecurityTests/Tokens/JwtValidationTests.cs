@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
 using OrderService.Security;
+using Xunit;
 
 namespace SecurityTests.Tokens;
 

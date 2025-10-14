@@ -12,7 +12,17 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6fbf6dae-69c9-4f97-aca4-de251aca63a4" name="Changes" comment="" />
+    <list default="true" id="6fbf6dae-69c9-4f97-aca4-de251aca63a4" name="Changes" comment="implementation for Compare page and fixes for unit tests">
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.thesis-sg-compare/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.thesis-sg-compare/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/SecurityTests/ClientCertificates/MtlsEnforcementTests.cs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/SecurityTests/ClientCertificates/MtlsEnforcementTests.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/SecurityTests/SecurityTests.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/tests/SecurityTests/SecurityTests.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/SecurityTests/Tokens/JwtNegativeTests.cs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/SecurityTests/Tokens/JwtNegativeTests.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/SecurityTests/Tokens/JwtValidationTests.cs" beforeDir="false" afterPath="$PROJECT_DIR$/tests/SecurityTests/Tokens/JwtValidationTests.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/dashboard/dist/assets/index-BxTVXiey.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/dashboard/dist/assets/index-DKqYxUWX.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/dashboard/dist/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/ui/dashboard/dist/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/dashboard/src/pages/ComparePage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/ui/dashboard/src/pages/ComparePage.tsx" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -21,6 +31,32 @@
   <component name="DpaMonitoringSettings">
     <option name="firstShow" value="false" />
   </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="main" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="UPDATE_TYPE" value="REBASE" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;nemanja87&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/nemanja87/master_thesis&quot;,
+    &quot;accountId&quot;: &quot;cb4cde47-4a01-4452-9328-1cc6300c84d7&quot;
+  }
+}</component>
+  <component name="KubernetesApiPersistence">{}</component>
+  <component name="KubernetesApiProvider">{
+  &quot;isMigrated&quot;: true
+}</component>
+  <component name="MetaFilesCheckinStateConfiguration" checkMetaFiles="true" />
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 2
 }</component>
@@ -35,6 +71,8 @@
     &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;Rebasing main&quot;,
     &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
@@ -202,15 +240,54 @@
       <workItem from="1760449061588" duration="4672000" />
       <workItem from="1760454339533" duration="15000" />
       <workItem from="1760454400639" duration="294000" />
+      <workItem from="1760468887541" duration="503000" />
+      <workItem from="1760469578189" duration="22000" />
+      <workItem from="1760469642270" duration="159000" />
+      <workItem from="1760469945094" duration="11000" />
+      <workItem from="1760507463955" duration="263000" />
+      <workItem from="1760508088614" duration="127000" />
     </task>
+    <task id="LOCAL-00001" summary="second commit">
+      <option name="closed" value="true" />
+      <created>1760469068213</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1760469068213</updated>
+    </task>
+    <task id="LOCAL-00002" summary="third commit">
+      <option name="closed" value="true" />
+      <created>1760469085590</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1760469085590</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
+  <component name="UnityCheckinConfiguration" checkUnsavedScenes="true" />
   <component name="UnityProjectConfiguration" hasMinimizedUI="false" />
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
   <component name="VcsManagerConfiguration">
     <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
+    <MESSAGE value="second commit" />
+    <MESSAGE value="third commit" />
+    <MESSAGE value="implementation for Compare page and fixes for unit tests" />
+    <option name="LAST_COMMIT_MESSAGE" value="implementation for Compare page and fixes for unit tests" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
