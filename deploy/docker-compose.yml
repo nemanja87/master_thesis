@@ -1,0 +1,150 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: thesis-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: results-db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: user
+    ports:
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  authserver:
+    build:
+      context: ..
+      dockerfile: ./deploy/dockerfiles/AuthServer.Dockerfile
+    container_name: thesis-authserver
+    depends_on:
+      - postgres
+    environment:
+      ASPNETCORE_URLS: http://+:5001
+      ASPNETCORE_ENVIRONMENT: Development
+      SEC_PROFILE: S0
+      ConnectionStrings__Results: Host=postgres;Port=5432;Database=postgres;Username=postgres;Password=user
+    ports:
+      - "5001:5001"
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: ./deploy/dockerfiles/Gateway.Dockerfile
+    container_name: thesis-gateway
+    depends_on:
+      - authserver
+      - orderservice
+      - inventoryservice
+    environment:
+      ASPNETCORE_URLS: http://+:8080;http://+:9090
+      ASPNETCORE_ENVIRONMENT: Development
+      SEC_PROFILE: S0
+      AuthServer__Authority: http://authserver:5001
+      ReverseProxy__Clusters__orders-rest__Destinations__primary__Address: http://orderservice:8081/
+      ReverseProxy__Clusters__inventory-rest__Destinations__primary__Address: http://inventoryservice:8082/
+      ReverseProxy__Clusters__orders-grpc__Destinations__primary__Address: http://orderservice:9091/
+      ReverseProxy__Clusters__inventory-grpc__Destinations__primary__Address: http://inventoryservice:9092/
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+
+  orderservice:
+    build:
+      context: ..
+      dockerfile: ./deploy/dockerfiles/OrderService.Dockerfile
+    container_name: thesis-orderservice
+    depends_on:
+      - authserver
+      - inventoryservice
+    environment:
+      ASPNETCORE_URLS: http://+:8081;http://+:9091
+      ASPNETCORE_ENVIRONMENT: Development
+      SEC_PROFILE: S0
+      AuthServer__Authority: http://authserver:5001
+      Inventory__RestBaseUrl: http://inventoryservice:8082
+      Inventory__GrpcAddress: http://inventoryservice:9092
+    ports:
+      - "8081:8081"
+    expose:
+      - "9091"
+
+  inventoryservice:
+    build:
+      context: ..
+      dockerfile: ./deploy/dockerfiles/InventoryService.Dockerfile
+    container_name: thesis-inventoryservice
+    depends_on:
+      - authserver
+    environment:
+      ASPNETCORE_URLS: http://+:8082;http://+:9092
+      ASPNETCORE_ENVIRONMENT: Development
+      SEC_PROFILE: S0
+      AuthServer__Authority: http://authserver:5001
+    ports:
+      - "8082:8082"
+    expose:
+      - "9092"
+
+  resultsservice:
+    build:
+      context: ..
+      dockerfile: ./deploy/dockerfiles/ResultsService.Dockerfile
+    container_name: thesis-resultsservice
+    depends_on:
+      - postgres
+    environment:
+      ASPNETCORE_URLS: http://+:8000
+      ASPNETCORE_ENVIRONMENT: Development
+      SEC_PROFILE: S0
+      ConnectionStrings__Results: Host=postgres;Port=5432;Database=results-db;Username=postgres;Password=user
+      Dashboard__Origin: http://localhost:5173
+      Results__AllowAnonymousReads: "true"
+      BENCH_Target__RestBaseUrl: http://gateway:8080
+      BENCH_Target__GrpcAddress: gateway:9090
+      BENCH_Target__ProtoPath: Protos/ordering.proto
+      BENCH_Security__Jwt__TokenEndpoint: http://authserver:5001/connect/token
+      BENCH_Tools__K6Path: /usr/local/bin/k6
+      BENCH_Tools__GhzPath: /usr/local/bin/ghz
+      BENCH_Prometheus__BaseUrl: http://prometheus:9090
+      BENCH_Results__BaseUrl: http://localhost:8000
+      BENCH_Results__ApiRoute: /api/runs
+    ports:
+      - "8000:8000"
+
+  prometheus:
+    image: prom/prometheus:v2.49.1
+    container_name: thesis-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    ports:
+      - "9091:9090"
+    depends_on:
+      - gateway
+      - orderservice
+      - inventoryservice
+      - resultsservice
+
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: thesis-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    ports:
+      - "${GRAFANA_HOST_PORT:-5000}:3000"
+
+volumes:
+  postgres-data:
+  grafana-data:

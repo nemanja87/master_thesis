@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+option csharp_namespace = "Shared.Contracts.Protos";
+
+package shared.contracts.orders;
+
+message CreateOrderRequestMessage {
+  string customer_id = 1;
+  repeated string item_skus = 2;
+  double total_amount = 3;
+}
+
+message CreateOrderResponseMessage {
+  string order_id = 1;
+  bool accepted = 2;
+}
+
+message OrderDtoMessage {
+  string order_id = 1;
+  string customer_id = 2;
+  repeated string item_skus = 3;
+  string status = 4;
+}
+
+message GetOrderRequest {
+  string order_id = 1;
+}
+
+message ReserveOrderRequest {
+  string order_id = 1;
+}
+
+message ReserveOrderResponse {
+  bool reserved = 1;
+}
+
+message CreateInventoryRequest {
+  string sku = 1;
+  int32 quantity = 2;
+}
+
+message CreateInventoryResponse {
+  string sku = 1;
+  int32 total_quantity = 2;
+}
+
+message GetInventoryRequest {
+  string sku = 1;
+}
+
+message InventoryDto {
+  string sku = 1;
+  int32 available_quantity = 2;
+}
+
+message ReserveInventoryRequest {
+  string sku = 1;
+  int32 quantity = 2;
+}
+
+message ReserveInventoryResponse {
+  bool success = 1;
+  int32 remaining_quantity = 2;
+}
+
+service OrderService {
+  rpc Create (CreateOrderRequestMessage) returns (CreateOrderResponseMessage);
+  rpc Get (GetOrderRequest) returns (OrderDtoMessage);
+  rpc Reserve (ReserveOrderRequest) returns (ReserveOrderResponse);
+}
+
+service InventoryService {
+  rpc Create (CreateInventoryRequest) returns (CreateInventoryResponse);
+  rpc Get (GetInventoryRequest) returns (InventoryDto);
+  rpc Reserve (ReserveInventoryRequest) returns (ReserveInventoryResponse);
+}
