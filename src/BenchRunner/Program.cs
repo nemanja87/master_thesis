@@ -357,14 +357,33 @@ internal static class Program
         psi.ArgumentList.Add("json");
         psi.ArgumentList.Add("--output");
         psi.ArgumentList.Add(summaryPath);
-        var metadataPath = Path.Combine(Path.GetTempPath(), $"ghz-metadata-{Guid.NewGuid():N}.json");
-        var metadata = new Dictionary<string, string>
+        string? metadataPath = null;
+        var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(token))
         {
-            ["authorization"] = $"Bearer {token}"
-        };
-        await File.WriteAllTextAsync(metadataPath, JsonSerializer.Serialize(metadata, JsonOptions), cancellationToken);
-        psi.ArgumentList.Add("--metadata-file");
-        psi.ArgumentList.Add(metadataPath);
+            metadata["authorization"] = $"Bearer {token}";
+        }
+
+        if (workload.Metadata is not null)
+        {
+            foreach (var kvp in workload.Metadata)
+            {
+                if (string.IsNullOrWhiteSpace(kvp.Key))
+                {
+                    continue;
+                }
+
+                metadata[kvp.Key] = kvp.Value;
+            }
+        }
+
+        if (metadata.Count > 0)
+        {
+            metadataPath = Path.Combine(Path.GetTempPath(), $"ghz-metadata-{Guid.NewGuid():N}.json");
+            await File.WriteAllTextAsync(metadataPath, JsonSerializer.Serialize(metadata, JsonOptions), cancellationToken);
+            psi.ArgumentList.Add("--metadata-file");
+            psi.ArgumentList.Add(metadataPath);
+        }
         psi.ArgumentList.Add("--data");
         var payload = workload.RequestBody is null ? "{}" : JsonSerializer.Serialize(workload.RequestBody, JsonOptions);
         psi.ArgumentList.Add(payload);
@@ -372,8 +391,12 @@ internal static class Program
         var protoPath = !string.IsNullOrWhiteSpace(workload.Proto) ? workload.Proto : config.Target.ProtoPath;
         if (!string.IsNullOrWhiteSpace(protoPath))
         {
+            var resolvedProtoPath = Path.IsPathRooted(protoPath)
+                ? protoPath
+                : Path.Combine(AppContext.BaseDirectory, protoPath);
+
             psi.ArgumentList.Add("--proto");
-            psi.ArgumentList.Add(protoPath);
+            psi.ArgumentList.Add(resolvedProtoPath);
         }
 
         ApplyGhzSecurityArguments(config.Security.Tls, options.SecurityMode, psi);
@@ -381,7 +404,10 @@ internal static class Program
         psi.ArgumentList.Add(config.Target.GrpcAddress);
 
         var result = await RunProcessAsync(psi, "ghz", summaryPath, logger, cancellationToken);
-        CleanupTempFile(metadataPath, logger);
+        if (metadataPath is not null)
+        {
+            CleanupTempFile(metadataPath, logger);
+        }
         if (!result.Succeeded)
         {
             if (warmupOnly)

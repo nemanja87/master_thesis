@@ -84,4 +84,5 @@ internal sealed class GrpcWorkload
     public string Call { get; set; } = string.Empty;
     public string? Proto { get; set; }
     public object? RequestBody { get; set; }
+    public Dictionary<string, string> Metadata { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
