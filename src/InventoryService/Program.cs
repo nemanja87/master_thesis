@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Shared.Security;
+using Prometheus;
 
 // Enable HTTP/2 without TLS (H2C) for S0 profile
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
@@ -102,6 +103,9 @@ if (requiresJwt || requiresPolicies)
 
 var app = builder.Build();
 
+// Instrument HTTP request metrics and expose /metrics for Prometheus
+app.UseHttpMetrics();
+
 if (requiresHttps)
 {
     app.UseHttpsRedirection();
@@ -188,5 +192,7 @@ else if (requiresJwt)
 app.MapGrpcService<InventoryGrpcService>();
 
 app.MapGet("/", () => "InventoryService ready.");
+
+app.MapMetrics();
 
 app.Run();

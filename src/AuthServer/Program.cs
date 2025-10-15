@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using OpenIddict.Abstractions;
 using OpenIddict.Server;
 using Shared.Security;
+using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -166,6 +167,9 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Instrument HTTP request metrics and expose /metrics for Prometheus
+app.UseHttpMetrics();
+
 app.MapPost("/account/login", async (LoginRequest request,
     SignInManager<ApplicationUser> signInManager,
     UserManager<ApplicationUser> userManager) =>
@@ -197,6 +201,8 @@ app.MapGet("/", () => Results.Ok("AuthServer running."));
 
 app.MapControllers();
 app.MapDefaultControllerRoute();
+
+app.MapMetrics();
 
 app.Run();
 

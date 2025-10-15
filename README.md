@@ -43,7 +43,7 @@ Services exposed locally:
 - AuthServer `https://localhost:5001`
 - ResultsService API `http://localhost:8000`
 - Grafana `http://localhost:5000` (admin/admin)
-- Prometheus `http://localhost:9090`
+- Prometheus `http://localhost:9091` (container 9090 → host 9091)
 
 ### Running BenchRunner
 
@@ -62,7 +62,7 @@ dotnet run --project src/BenchRunner/BenchRunner.csproj -- \
   --connections 20
 ```
 
-For gRPC workloads, ensure the workload definition includes the `Call`, optional `Metadata`, and (if needed) override `Proto`. BenchRunner automatically acquires JWTs, applies TLS/mTLS settings, and ships results to the ResultsService.
+For gRPC workloads, ensure the workload definition includes the `Call`, optional `Metadata`, and (if needed) override `Proto`. Note: Gateway's gRPC endpoint on `http://localhost:9090` is HTTP/2 only; visiting it in a browser will show “An HTTP/1.x request was sent to an HTTP/2 only endpoint”. This is expected.
 
 ### Using the Dashboard UI
 

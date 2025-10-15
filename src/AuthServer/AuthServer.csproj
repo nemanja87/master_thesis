@@ -10,6 +10,7 @@
     <PackageReference Include="OpenIddict.AspNetCore" Version="4.8.0" />
     <PackageReference Include="OpenIddict.EntityFrameworkCore" Version="4.8.0" />
     <PackageReference Include="OpenIddict.Server.AspNetCore" Version="4.8.0" />
+    <PackageReference Include="prometheus-net.AspNetCore" Version="8.0.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Shared.Contracts/Shared.Contracts.csproj" />

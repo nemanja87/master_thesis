@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using ResultsService.Contracts;
+using Prometheus;
 using ResultsService.Data;
 using ResultsService.HealthChecks;
 using ResultsService.Models;
@@ -92,6 +93,9 @@ if (app.Environment.IsDevelopment())
 app.UseSwagger();
 app.UseSwaggerUI();
 
+// Instrument HTTP request metrics and expose /metrics for Prometheus
+app.UseHttpMetrics();
+
 if (requiresHttps)
 {
     app.UseHttpsRedirection();
@@ -106,6 +110,8 @@ if (requiresJwt)
 }
 
 app.MapHealthChecks("/healthz");
+
+app.MapMetrics();
 
 var createRunEndpoint = app.MapPost("/api/runs", async Task<Results<Created<RunResponse>, ValidationProblem>> (
     RunRequest request,

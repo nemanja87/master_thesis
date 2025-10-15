@@ -12,6 +12,7 @@ using OrderService.Services;
 using Shared.Contracts.Orders;
 using Shared.Contracts.Protos;
 using Shared.Security;
+using Prometheus;
 
 // Enable HTTP/2 without TLS (H2C) for S0 profile - both server and client
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
@@ -137,6 +138,9 @@ if (requiresJwt || requiresPolicies)
 
 var app = builder.Build();
 
+// Instrument HTTP request metrics and expose /metrics for Prometheus
+app.UseHttpMetrics();
+
 if (requiresHttps)
 {
     app.UseHttpsRedirection();
@@ -215,5 +219,7 @@ else if (requiresJwt)
 app.MapGrpcService<OrderGrpcService>();
 
 app.MapGet("/", () => "OrderService ready.");
+
+app.MapMetrics();
 
 app.Run();

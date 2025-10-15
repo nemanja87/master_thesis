@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.IdentityModel.Tokens;
 using Shared.Security;
 using Yarp.ReverseProxy.Transforms;
+using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -87,6 +88,9 @@ var app = builder.Build();
 handshakeTracker.Initialize(app.Services.GetRequiredService<ILoggerFactory>());
 app.Lifetime.ApplicationStopping.Register(handshakeTracker.LogSummary);
 
+// Instrument HTTP request metrics and expose /metrics for Prometheus
+app.UseHttpMetrics();
+
 app.UseCors();
 
 if (requiresHttps)
@@ -139,6 +143,8 @@ app.MapGet("/healthz", () => Results.Ok(new
     handshakes = handshakeTracker.HandshakeCount,
     clientCertificates = handshakeTracker.ClientCertificateCount
 }));
+
+app.MapMetrics();
 
 app.MapReverseProxy();
 

@@ -15,6 +15,15 @@ This thesis evaluates secure gateways (SG) under varied security postures (S0–
 | S4      | HTTPS     | JWT  | Yes        | No             | Dual-mode identity (client cert + token). |
 | S5      | HTTPS     | JWT  | Optional   | Yes (REST policies & gRPC RBAC) | Maximum defence; includes per-method scope enforcement. |
 
+### Profiles Explained
+
+- S0 (No security): Plain HTTP. Use to establish raw throughput/latency ceilings with zero crypto or auth.
+- S1 (TLS only): HTTPS server cert. Measures cost of transport encryption vs S0.
+- S2 (JWT): HTTPS + bearer tokens. Measures token validation overhead vs S1.
+- S3 (mTLS): HTTPS + client certs (no JWT). Measures client‑certificate handshake/validation vs S1.
+- S4 (mTLS + JWT): Dual identity (cert + token). Measures combined auth cost vs S2/S3.
+- S5 (JWT + RBAC/Policies): HTTPS + JWT plus per‑method authorization (REST policies / gRPC interceptor). Measures enforcement overhead vs S2; mTLS can be optionally combined.
+
 ## Workloads
 
 | Workload ID | Description | Protocol(s) | Payload Characteristics | Dependencies |
@@ -53,6 +62,17 @@ For each security profile S0–S5:
 5. Record Prometheus snapshots + Grafana PNG exports for relevant panels.
 
 Repeat measurements at least 3 times, report median with MAD (median absolute deviation).
+
+### Automation
+
+- Use `scripts/run-matrix.sh` to iterate S0–S5 and REST/gRPC for a workload and RPS set, e.g.:
+  - `scripts/run-matrix.sh orders-create "10,50,100" 60 10 20`
+- Use `scripts/run-single.sh` to trigger a specific run and archive the latest run JSON:
+  - `scripts/run-single.sh S2 grpc orders-create 50 60 10 20`
+- Export all runs for analysis:
+  - `scripts/export-runs.sh thesis`
+- Aggregate and plot (requires Python + pandas + matplotlib):
+  - `python analysis/analyze_runs.py --url http://localhost:8000 --out analysis/out`
 
 ## Hardware / Environment
 

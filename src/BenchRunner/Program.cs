@@ -24,6 +24,8 @@ internal static class Program
         WriteIndented = true
     };
 
+    private static readonly JsonSerializerOptions JsonCompactOptions = new(JsonSerializerDefaults.Web);
+
     public static async Task<int> Main(string[] args)
     {
         var runOptions = BenchRunOptions.Parse(args, message => Console.Error.WriteLine(message));
@@ -36,6 +38,37 @@ internal static class Program
         var configuration = BuildConfiguration();
         var benchConfig = new BenchConfiguration();
         configuration.Bind(benchConfig);
+
+        // Rehydrate JSON bodies from the raw appsettings so we can resend them verbatim.
+        var appSettingsPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        if (File.Exists(appSettingsPath))
+        {
+            using var raw = JsonDocument.Parse(File.ReadAllText(appSettingsPath));
+            if (raw.RootElement.TryGetProperty("Workloads", out var workloadsElement))
+            {
+                foreach (var workloadPair in benchConfig.Workloads)
+                {
+                    if (!workloadsElement.TryGetProperty(workloadPair.Key, out var workloadJson))
+                    {
+                        continue;
+                    }
+
+                    if (workloadPair.Value.Rest is not null &&
+                        workloadJson.TryGetProperty("Rest", out var restJson) &&
+                        restJson.TryGetProperty("Body", out var restBodyJson))
+                    {
+                        workloadPair.Value.Rest.Body = restBodyJson.Clone();
+                    }
+
+                    if (workloadPair.Value.Grpc is not null &&
+                        workloadJson.TryGetProperty("Grpc", out var grpcJson) &&
+                        grpcJson.TryGetProperty("RequestBody", out var grpcBodyJson))
+                    {
+                        workloadPair.Value.Grpc.RequestBody = grpcBodyJson.Clone();
+                    }
+                }
+            }
+        }
 
         using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
         var logger = loggerFactory.CreateLogger("BenchRunner");
@@ -240,7 +273,12 @@ internal static class Program
 
     private static string BuildK6Script(string url, string method, object? body, string token, BenchRunOptions options)
     {
-        var jsonBody = body is null ? "" : JsonSerializer.Serialize(body, JsonOptions);
+        var jsonBody = body switch
+        {
+            JsonElement element when element.ValueKind is not JsonValueKind.Null and not JsonValueKind.Undefined => JsonSerializer.Serialize(element, JsonCompactOptions),
+            null => string.Empty,
+            _ => JsonSerializer.Serialize(body, JsonCompactOptions)
+        };
         var escapedBody = jsonBody.Replace("\\", "\\\\").Replace("\"", "\\\"");
         var mainDuration = ToK6Duration(options.Duration);
         var warmupDuration = options.Warmup > TimeSpan.Zero ? ToK6Duration(options.Warmup) : null;
@@ -385,8 +423,21 @@ internal static class Program
             psi.ArgumentList.Add(metadataPath);
         }
         psi.ArgumentList.Add("--data");
-        var payload = workload.RequestBody is null ? "{}" : JsonSerializer.Serialize(workload.RequestBody, JsonOptions);
+        string payload = workload.RequestBody switch
+        {
+            JsonElement element when element.ValueKind is not JsonValueKind.Null and not JsonValueKind.Undefined => JsonSerializer.Serialize(element, JsonCompactOptions),
+            null => "{}",
+            _ => JsonSerializer.Serialize(workload.RequestBody, JsonCompactOptions)
+        };
         psi.ArgumentList.Add(payload);
+        logger.LogInformation("ghz payload ({PayloadType}): {Payload}",
+            workload.RequestBody switch
+            {
+                JsonElement element => element.ValueKind.ToString(),
+                null => "null",
+                _ => workload.RequestBody.GetType().FullName ?? "unknown"
+            },
+            payload);
 
         var protoPath = !string.IsNullOrWhiteSpace(workload.Proto) ? workload.Proto : config.Target.ProtoPath;
         if (!string.IsNullOrWhiteSpace(protoPath))
@@ -620,6 +671,8 @@ internal static class Program
         {
             metrics.Add(new MetricSubmission { Name = "ghz_rps", Unit = "ops", Value = rps.GetDouble() });
         }
+        // Attempt multiple schema variants seen across ghz versions
+        // 1) Root-level fields
         if (root.TryGetProperty("average", out var avg))
         {
             AddLatencyMetric("avg", ParseGhzDurationValue(avg));
@@ -629,19 +682,55 @@ internal static class Program
             AddLatencyMetric("p95", ParseGhzDurationValue(p95));
         }
 
+        // 2) latency object: may have 50th/95th/99th or p50/p95
+        if (root.TryGetProperty("latency", out var latencyObj) && latencyObj.ValueKind == JsonValueKind.Object)
+        {
+            double TryRead(params string[] names)
+            {
+                foreach (var name in names)
+                {
+                    if (latencyObj.TryGetProperty(name, out var el))
+                    {
+                        return ParseGhzDurationValue(el);
+                    }
+                }
+                return double.NaN;
+            }
+
+            var p50v = TryRead("p50", "50th", "p_50");
+            if (!double.IsNaN(p50v)) AddLatencyMetric("p50", p50v);
+            var p90v = TryRead("p90", "90th", "p_90");
+            if (!double.IsNaN(p90v)) AddLatencyMetric("p90", p90v);
+            var p95v = TryRead("p95", "95th", "p_95");
+            if (!double.IsNaN(p95v)) AddLatencyMetric("p95", p95v);
+            var p99v = TryRead("p99", "99th", "p_99");
+            if (!double.IsNaN(p99v)) AddLatencyMetric("p99", p99v);
+            var meanv = TryRead("mean", "avg");
+            if (!double.IsNaN(meanv)) AddLatencyMetric("avg", meanv);
+        }
+
+        // 3) latencyDistribution array: { percentage: 0.95 or 95, latency: "3ms" }
         if (root.TryGetProperty("latencyDistribution", out var distribution) && distribution.ValueKind == JsonValueKind.Array)
         {
             foreach (var item in distribution.EnumerateArray())
             {
-                if (!item.TryGetProperty("percentage", out var percentageElement) ||
-                    !item.TryGetProperty("latency", out var latencyElement))
+                // Support keys 'percentage' or 'percentile'
+                JsonElement pctEl;
+                if (!(item.TryGetProperty("percentage", out pctEl) || item.TryGetProperty("percentile", out pctEl)))
+                {
+                    continue;
+                }
+                if (!item.TryGetProperty("latency", out var latencyElement))
                 {
                     continue;
                 }
 
-                var percentage = percentageElement.GetDouble();
-                var percentileKey = $"p{Math.Round(percentage, MidpointRounding.AwayFromZero):0}";
-                AddLatencyMetric(percentileKey, ParseGhzDurationValue(latencyElement));
+                var pct = pctEl.ValueKind == JsonValueKind.Number ? pctEl.GetDouble() : double.NaN;
+                if (double.IsNaN(pct)) continue;
+                // Some ghz versions emit 0.95; others 95. Normalize to 95-style label
+                if (pct <= 1.0) pct *= 100.0;
+                var percentileLabel = $"p{Math.Round(pct, MidpointRounding.AwayFromZero):0}";
+                AddLatencyMetric(percentileLabel, ParseGhzDurationValue(latencyElement));
             }
         }
 
