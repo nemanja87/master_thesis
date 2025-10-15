@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BenchRunRequest, Protocol, SecurityMode } from '../../types/bench';
 
 interface RunControlsProps {
   isRunning?: boolean;
+  runStartedAt: number | null;
   onSubmit: (request: BenchRunRequest) => Promise<void> | void;
 }
 
@@ -14,7 +15,7 @@ const workloadOptions = [
   { value: 'inventory-reserve', label: 'Inventory - Reserve' }
 ];
 
-export function RunControls({ isRunning = false, onSubmit }: RunControlsProps) {
+export function RunControls({ isRunning = false, runStartedAt, onSubmit }: RunControlsProps) {
   const [protocol, setProtocol] = useState<Protocol>('rest');
   const [security, setSecurity] = useState<SecurityMode>('tls');
   const [workload, setWorkload] = useState<string>(workloadOptions[0]?.value ?? 'orders-create');
@@ -32,6 +33,9 @@ export function RunControls({ isRunning = false, onSubmit }: RunControlsProps) {
     event.preventDefault();
     await onSubmit(derivedRequest);
   };
+
+  const elapsed = useElapsedTime(isRunning, runStartedAt);
+  const buttonLabel = isRunning ? `Running… ${formatElapsed(elapsed)}` : 'Trigger BenchRunner';
 
   return (
     <form
@@ -149,14 +153,39 @@ export function RunControls({ isRunning = false, onSubmit }: RunControlsProps) {
       </div>
 
       <div className="flex items-end">
-        <button
-          type="submit"
-          className="btn btn-primary w-full"
-          disabled={isRunning}
-        >
-          {isRunning ? 'Running…' : 'Trigger BenchRunner'}
+        <button type="submit" className="btn btn-primary w-full" disabled={isRunning}>
+          {buttonLabel}
         </button>
       </div>
     </form>
   );
+}
+
+function useElapsedTime(isRunning: boolean, startedAt: number | null) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!isRunning || startedAt === null) {
+      setElapsed(0);
+      return;
+    }
+
+    setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+
+    const interval = window.setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [isRunning, startedAt]);
+
+  return elapsed;
+}
+
+function formatElapsed(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60)
+    .toString()
+    .padStart(2, '0');
+  const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+  return `${minutes}:${seconds}`;
 }

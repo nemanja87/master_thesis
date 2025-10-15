@@ -141,8 +141,17 @@ internal static class SeedingExtensions
     private static async Task EnsureBenchRunnerClientAsync(IOpenIddictApplicationManager manager, IConfiguration clientsSection)
     {
         const string clientId = "bench-runner";
-        if (await manager.FindByClientIdAsync(clientId, CancellationToken.None) is not null)
+        var existing = await manager.FindByClientIdAsync(clientId, CancellationToken.None);
+        if (existing is not null)
         {
+            var existingDescriptor = new OpenIddictApplicationDescriptor();
+            await manager.PopulateAsync(existing, existingDescriptor, CancellationToken.None);
+
+            existingDescriptor.Permissions.Add(Permissions.Prefixes.Scope + "orders.read");
+            existingDescriptor.Permissions.Add(Permissions.Prefixes.Scope + "orders.write");
+            existingDescriptor.Permissions.Add(Permissions.Prefixes.Scope + "inventory.write");
+
+            await manager.UpdateAsync(existing, existingDescriptor, CancellationToken.None);
             return;
         }
 
@@ -159,7 +168,8 @@ internal static class SeedingExtensions
                 Permissions.Endpoints.Token,
                 Permissions.GrantTypes.ClientCredentials,
                 Permissions.Prefixes.Scope + "orders.read",
-                Permissions.Prefixes.Scope + "orders.write"
+                Permissions.Prefixes.Scope + "orders.write",
+                Permissions.Prefixes.Scope + "inventory.write"
             },
             Type = ClientTypes.Confidential
         };

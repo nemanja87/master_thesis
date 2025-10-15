@@ -7,7 +7,7 @@ import { ConfigTable } from '../components/tables/ConfigTable';
 import { useBenchRunner } from '../hooks/useBenchRunner';
 
 export function RunExperimentsPage() {
-  const { latestRun, triggerRun, isRunning, error } = useBenchRunner();
+  const { latestRun, triggerRun, isRunning, runStartedAt, error } = useBenchRunner();
 
   const configRows = useMemo(() => {
     if (!latestRun) {
@@ -27,7 +27,7 @@ export function RunExperimentsPage() {
         description="Configure and trigger new synthetic load tests via BenchRunner"
       />
 
-      <RunControls isRunning={isRunning} onSubmit={triggerRun} />
+      <RunControls isRunning={isRunning} runStartedAt={runStartedAt} onSubmit={triggerRun} />
 
       {error ? (
         <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-3">

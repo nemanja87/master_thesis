@@ -6,6 +6,7 @@ import { useRunHistory } from '../contexts/RunHistoryContext';
 interface BenchRunnerState {
   latestRun: BenchRunResult | null;
   isRunning: boolean;
+  runStartedAt: number | null;
   error: string | null;
   triggerRun: (request: BenchRunRequest) => Promise<void>;
 }
@@ -13,6 +14,7 @@ interface BenchRunnerState {
 export function useBenchRunner(): BenchRunnerState {
   const [latestRun, setLatestRun] = useState<BenchRunResult | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { refresh } = useRunHistory();
 
@@ -20,6 +22,7 @@ export function useBenchRunner(): BenchRunnerState {
     try {
       setIsRunning(true);
       setError(null);
+      setRunStartedAt(Date.now());
       const result = await triggerBenchRun(request);
       setLatestRun(result ?? null);
       await refresh();
@@ -28,12 +31,14 @@ export function useBenchRunner(): BenchRunnerState {
       setError('Failed to trigger BenchRunner. See console for details.');
     } finally {
       setIsRunning(false);
+      setRunStartedAt(null);
     }
   }, [refresh]);
 
   return {
     latestRun,
     isRunning,
+    runStartedAt,
     error,
     triggerRun
   };
