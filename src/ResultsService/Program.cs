@@ -82,7 +82,24 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ResultsDbContext>();
-    dbContext.Database.EnsureCreated();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    const int maxInitializationAttempts = 5;
+    var attempt = 0;
+    while (true)
+    {
+        try
+        {
+            dbContext.Database.EnsureCreated();
+            break;
+        }
+        catch (Exception ex) when (attempt < maxInitializationAttempts)
+        {
+            attempt++;
+            var delaySeconds = Math.Min(30, Math.Pow(2, attempt));
+            logger.LogWarning(ex, "Failed to initialize Results database (attempt {Attempt}/{MaxAttempts}); retrying in {Delay:F0}s.", attempt, maxInitializationAttempts, delaySeconds);
+            await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
+        }
+    }
 }
 
 if (app.Environment.IsDevelopment())

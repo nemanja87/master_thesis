@@ -250,6 +250,9 @@ internal static class Program
         psi.ArgumentList.Add("--summary-export");
         psi.ArgumentList.Add(summaryPath);
 
+        // Request additional percentile buckets in the exported summary.
+        psi.Environment["K6_SUMMARY_TREND_STATS"] = "avg,min,med,max,p(10),p(25),p(50),p(75),p(90),p(95),p(99)";
+
         ApplyTlsEnvironment(config.Security.Tls, runOptions.SecurityMode, psi);
 
         if (runOptions.SecurityMode.Equals("none", StringComparison.OrdinalIgnoreCase))
@@ -626,6 +629,8 @@ internal static class Program
 
         AddMetric("http_reqs", "count", "count");
         AddMetric("http_req_duration", "ms", "avg");
+        AddMetric("http_req_duration", "ms", "p(10)", "p10");
+        AddMetric("http_req_duration", "ms", "p(25)", "p25");
         AddMetric("http_req_duration", "ms", "p(50)", "p50");
         AddMetric("http_req_duration", "ms", "p(75)", "p75");
         AddMetric("http_req_duration", "ms", "p(90)", "p90");
@@ -648,6 +653,7 @@ internal static class Program
         var root = json.RootElement;
         var metrics = new List<MetricSubmission>();
         var addedLatencyMetrics = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var detailLatencies = new List<double>();
 
         void AddLatencyMetric(string suffix, double value)
         {
@@ -663,10 +669,31 @@ internal static class Program
             }
         }
 
+        if (root.TryGetProperty("details", out var details) && details.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var entry in details.EnumerateArray())
+            {
+                if (!entry.TryGetProperty("latency", out var latencyElement) || latencyElement.ValueKind != JsonValueKind.Number)
+                {
+                    continue;
+                }
+
+                var latencyValue = latencyElement.GetDouble();
+                if (double.IsNaN(latencyValue) || double.IsInfinity(latencyValue))
+                {
+                    continue;
+                }
+
+                // ghz reports per-request latency in nanoseconds; convert to milliseconds.
+                detailLatencies.Add(latencyValue / 1_000_000.0);
+            }
+        }
+
         if (root.TryGetProperty("count", out var count))
         {
             metrics.Add(new MetricSubmission { Name = "ghz_count", Unit = "count", Value = count.GetDouble() });
         }
+
         if (root.TryGetProperty("rps", out var rps))
         {
             metrics.Add(new MetricSubmission { Name = "ghz_rps", Unit = "ops", Value = rps.GetDouble() });
@@ -734,6 +761,40 @@ internal static class Program
             }
         }
 
+        if (detailLatencies.Count > 0)
+        {
+            detailLatencies.Sort();
+
+            double GetPercentile(double percentile)
+            {
+                if (detailLatencies.Count == 1)
+                {
+                    return detailLatencies[0];
+                }
+
+                var rank = (percentile / 100d) * (detailLatencies.Count - 1);
+                var lowerIndex = (int)Math.Floor(rank);
+                var upperIndex = (int)Math.Ceiling(rank);
+
+                if (lowerIndex == upperIndex)
+                {
+                    return detailLatencies[lowerIndex];
+                }
+
+                var weight = rank - lowerIndex;
+                var lower = detailLatencies[lowerIndex];
+                var upper = detailLatencies[upperIndex];
+                return lower + (upper - lower) * weight;
+            }
+
+            AddLatencyMetric("p50", GetPercentile(50));
+            AddLatencyMetric("p75", GetPercentile(75));
+            AddLatencyMetric("p90", GetPercentile(90));
+            AddLatencyMetric("p95", GetPercentile(95));
+            AddLatencyMetric("p99", GetPercentile(99));
+            AddLatencyMetric("avg", detailLatencies.Average());
+        }
+
         return metrics.Where(m => !double.IsNaN(m.Value));
     }
 
@@ -741,7 +802,8 @@ internal static class Program
     {
         if (element.ValueKind == JsonValueKind.Number)
         {
-            return element.GetDouble();
+            // ghz emits numeric latency values in nanoseconds; normalize to milliseconds.
+            return element.GetDouble() / 1_000_000.0;
         }
 
         if (element.ValueKind == JsonValueKind.String)
@@ -750,6 +812,17 @@ internal static class Program
             if (string.IsNullOrWhiteSpace(value))
             {
                 return double.NaN;
+            }
+
+            if (value.EndsWith("ns", StringComparison.OrdinalIgnoreCase) && double.TryParse(value[..^2], NumberStyles.Float, CultureInfo.InvariantCulture, out var ns))
+            {
+                return ns / 1_000_000.0;
+            }
+
+            if ((value.EndsWith("us", StringComparison.OrdinalIgnoreCase) || value.EndsWith("µs", StringComparison.OrdinalIgnoreCase)) &&
+                double.TryParse(value[..^2], NumberStyles.Float, CultureInfo.InvariantCulture, out var micro))
+            {
+                return micro / 1_000.0;
             }
 
             if (value.EndsWith("ms", StringComparison.OrdinalIgnoreCase) && double.TryParse(value[..^2], NumberStyles.Float, CultureInfo.InvariantCulture, out var ms))
@@ -764,7 +837,8 @@ internal static class Program
 
             if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var numeric))
             {
-                return numeric;
+                // No unit suffix present; assume nanoseconds to align with ghz defaults.
+                return numeric / 1_000_000.0;
             }
         }
 
